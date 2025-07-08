@@ -170,6 +170,7 @@ body {
     border-radius: 5px;
     transition: background-color 0.3s ease;
     flex: 1;
+    position: relative;
 }
 
 .item-name:hover {
@@ -179,6 +180,48 @@ body {
 .item-name.editing {
     background-color: rgba(116, 185, 255, 0.2);
     outline: 2px solid #74b9ff;
+}
+
+/* Internal name tooltip */
+.item-name::after {
+    content: attr(data-internal-name);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(45, 52, 54, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7em;
+    font-weight: normal;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+    font-family: 'Courier New', monospace;
+}
+
+.item-name::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(2px);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid rgba(45, 52, 54, 0.9);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.item-name:hover::after,
+.item-name:hover::before {
+    opacity: 1;
 }
 
 .item-description-preview {

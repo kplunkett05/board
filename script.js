@@ -21,6 +21,9 @@ class KanbanApp {
             localStorage.setItem('kanban-start-date', this.projectStartDate);
         }
         
+        // Migrate existing items to include internal names if they don't have them
+        this.migrateItemsToInternalNames();
+        
         this.timer = new PomodoroTimer();
         this.console = new ConsoleManager();
         this.stats = new StatsManager();
@@ -29,6 +32,25 @@ class KanbanApp {
         
         // Initialize drag and drop after DOM is ready
         this.dragDrop = new DragDropManager();
+    }
+    
+    migrateItemsToInternalNames() {
+        let needsSave = false;
+        this.items.forEach(item => {
+            if (!item.internalName) {
+                item.internalName = this.generateInternalName(item.name);
+                needsSave = true;
+            }
+        });
+        if (needsSave) {
+            this.saveItems();
+        }
+    }
+    
+    generateInternalName(displayName) {
+        // Convert display name to internal name by replacing spaces with dashes
+        // and converting to lowercase for consistency
+        return displayName.toLowerCase().replace(/\s+/g, '-');
     }
     
     init() {
@@ -81,10 +103,12 @@ class KanbanApp {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
     
-    addItem(column, name = 'new item', description = '') {
+    addItem(column, displayName = 'new item', description = '') {
+        const internalName = this.generateInternalName(displayName);
         const item = {
             id: this.generateId(),
-            name,
+            name: displayName,
+            internalName: internalName,
             description,
             column,
             timeSpent: 0,
@@ -97,9 +121,9 @@ class KanbanApp {
         return item;
     }
     
-    removeItem(column, name) {
+    removeItem(column, internalName) {
         const index = this.items.findIndex(item => 
-            item.column === column && item.name.toLowerCase() === name.toLowerCase()
+            item.column === column && item.internalName === internalName
         );
         
         if (index !== -1) {
@@ -111,9 +135,9 @@ class KanbanApp {
         return false;
     }
     
-    moveItem(fromColumn, name, toColumn) {
+    moveItem(fromColumn, internalName, toColumn) {
         const item = this.items.find(item => 
-            item.column === fromColumn && item.name.toLowerCase() === name.toLowerCase()
+            item.column === fromColumn && item.internalName === internalName
         );
         
         if (item) {
@@ -125,13 +149,14 @@ class KanbanApp {
         return false;
     }
     
-    renameItem(column, oldName, newName) {
+    renameItem(column, internalName, newDisplayName) {
         const item = this.items.find(item => 
-            item.column === column && item.name.toLowerCase() === oldName.toLowerCase()
+            item.column === column && item.internalName === internalName
         );
         
         if (item) {
-            item.name = newName;
+            item.name = newDisplayName;
+            item.internalName = this.generateInternalName(newDisplayName);
             this.saveItems();
             this.renderItems();
             return true;
@@ -139,9 +164,9 @@ class KanbanApp {
         return false;
     }
     
-    updateItemDescription(column, name, description) {
+    updateItemDescription(column, internalName, description) {
         const item = this.items.find(item => 
-            item.column === column && item.name.toLowerCase() === name.toLowerCase()
+            item.column === column && item.internalName === internalName
         );
         
         if (item) {
@@ -198,14 +223,17 @@ class KanbanApp {
         
         const nameDiv = document.createElement('div');
         nameDiv.className = 'item-name';
-        nameDiv.textContent = item.name;
+        nameDiv.textContent = item.name; // Use display name for UI
         nameDiv.contentEditable = true;
+        nameDiv.dataset.internalName = item.internalName; // Add internal name for tooltip
         
         // Name editing
         nameDiv.addEventListener('blur', () => {
-            const newName = nameDiv.textContent.trim();
-            if (newName && newName !== item.name) {
-                item.name = newName;
+            const newDisplayName = nameDiv.textContent.trim();
+            if (newDisplayName && newDisplayName !== item.name) {
+                item.name = newDisplayName;
+                item.internalName = this.generateInternalName(newDisplayName);
+                nameDiv.dataset.internalName = item.internalName; // Update tooltip
                 this.saveItems();
             }
             nameDiv.classList.remove('editing');
@@ -677,16 +705,17 @@ class ConsoleManager {
                 col.toLowerCase().startsWith(columnInput)
             );
         } else if (args.length >= 3 && itemCommands.includes(command)) {
-            // Suggesting item names for commands that work with existing items
+            // Suggesting internal names for commands that work with existing items
             const columnName = args[1];
-            const itemInput = args.slice(2).join(' ').toLowerCase();
+            const itemInput = args.slice(2).join(' ').toLowerCase(); // Join with spaces first, then we'll match against internal names
             
             if (this.columns.includes(columnName)) {
-                // Get items from the specified column
+                // Get items from the specified column and suggest internal names
                 const columnItems = kanbanApp.getItemsByColumn(columnName);
                 matches = columnItems
-                    .filter(item => item.name.toLowerCase().startsWith(itemInput))
-                    .map(item => item.name);
+                    .filter(item => item.internalName.toLowerCase().startsWith(itemInput) || 
+                                   item.internalName.toLowerCase().startsWith(itemInput.replace(/\s+/g, '-')))
+                    .map(item => item.internalName);
             }
         }
         
@@ -702,7 +731,7 @@ class ConsoleManager {
                 // Column suggestion - show full command with suggested column
                 suggestionText = `${command} ${suggestion}`;
             } else if (args.length >= 3 && itemCommands.includes(command)) {
-                // Item suggestion - show full command with suggested item
+                // Item suggestion - show full command with suggested internal name
                 suggestionText = `${command} ${args[1]} ${suggestion}`;
             }
             
@@ -765,11 +794,11 @@ class ConsoleManager {
     showHelp() {
         const helpText = [
             'Available commands:',
-            '  a [column] [name] - Add new item',
-            '  rm [column] [name] - Remove item',
-            '  mv [column] [name] [new_column] - Move item',
-            '  rename [column] [name] [new_name] - Rename item',
-            '  desc [column] [name] [description] - Update description',
+            '  a [column] [name] - Add new item (spaces become dashes)',
+            '  rm [column] [internal-name] - Remove item (use dashes for spaces)',
+            '  mv [column] [internal-name] [new_column] - Move item',
+            '  rename [column] [internal-name] [new_name] - Rename item',
+            '  desc [column] [internal-name] [description] - Update description',
             '  start - Start pomodoro timer',
             '  pause - Pause timer',
             '  skip - Skip current timer session',
@@ -777,7 +806,8 @@ class ConsoleManager {
             '  fullreset - Completely reset board to default',
             '  help - Show this help',
             '',
-            'Columns: todo, in-prog, completed'
+            'Columns: todo, in-prog, completed',
+            'Note: Use dashes instead of spaces for item names in commands'
         ];
         
         helpText.forEach(line => this.log(line));
@@ -790,81 +820,101 @@ class ConsoleManager {
         }
         
         const column = args[0];
-        const name = args.slice(1).join(' ');
+        const displayName = args.slice(1).join(' '); // Convert back to display name with spaces
         
         if (!this.columns.includes(column)) {
             this.logError(`Invalid column: ${column}. Use: ${this.columns.join(', ')}`);
             return;
         }
         
-        kanbanApp.addItem(column, name);
-        this.logSuccess(`Added '${name}' to ${column}`);
+        kanbanApp.addItem(column, displayName);
+        this.logSuccess(`Added '${displayName}' to ${column}`);
     }
     
     removeItem(args) {
         if (args.length < 2) {
-            this.logError('Usage: rm [column] [name]');
+            this.logError('Usage: rm [column] [internal-name]');
             return;
         }
         
         const column = args[0];
-        const name = args.slice(1).join(' ');
+        const internalName = args.slice(1).join('-').toLowerCase(); // Join with dashes for internal name
         
-        if (kanbanApp.removeItem(column, name)) {
-            this.logSuccess(`Removed '${name}' from ${column}`);
+        // Find the item to get its display name for the message
+        const item = kanbanApp.items.find(item => 
+            item.column === column && item.internalName === internalName
+        );
+        
+        if (kanbanApp.removeItem(column, internalName)) {
+            this.logSuccess(`Removed '${item.name}' from ${column}`);
         } else {
-            this.logError(`Item '${name}' not found in ${column}`);
+            this.logError(`Item '${internalName}' not found in ${column}`);
         }
     }
     
     moveItem(args) {
         if (args.length < 3) {
-            this.logError('Usage: mv [column] [name] [new_column]');
+            this.logError('Usage: mv [column] [internal-name] [new_column]');
             return;
         }
         
         const fromColumn = args[0];
         const toColumn = args[args.length - 1];
-        const name = args.slice(1, -1).join(' ');
+        const internalName = args.slice(1, -1).join('-').toLowerCase(); // Join with dashes for internal name
         
-        if (kanbanApp.moveItem(fromColumn, name, toColumn)) {
-            this.logSuccess(`Moved '${name}' from ${fromColumn} to ${toColumn}`);
+        // Find the item to get its display name for the message
+        const item = kanbanApp.items.find(item => 
+            item.column === fromColumn && item.internalName === internalName
+        );
+        
+        if (kanbanApp.moveItem(fromColumn, internalName, toColumn)) {
+            this.logSuccess(`Moved '${item.name}' from ${fromColumn} to ${toColumn}`);
         } else {
-            this.logError(`Item '${name}' not found in ${fromColumn}`);
+            this.logError(`Item '${internalName}' not found in ${fromColumn}`);
         }
     }
     
     renameItem(args) {
         if (args.length < 3) {
-            this.logError('Usage: rename [column] [old_name] [new_name]');
+            this.logError('Usage: rename [column] [internal-name] [new_name]');
             return;
         }
         
         const column = args[0];
-        const oldName = args[1];
-        const newName = args.slice(2).join(' ');
+        const internalName = args[1].toLowerCase(); // Keep as single arg for internal name
+        const newDisplayName = args.slice(2).join(' '); // Convert back to display name with spaces
         
-        if (kanbanApp.renameItem(column, oldName, newName)) {
-            this.logSuccess(`Renamed '${oldName}' to '${newName}' in ${column}`);
+        // Find the item to get its old display name for the message
+        const item = kanbanApp.items.find(item => 
+            item.column === column && item.internalName === internalName
+        );
+        
+        if (kanbanApp.renameItem(column, internalName, newDisplayName)) {
+            this.logSuccess(`Renamed '${item.name}' to '${newDisplayName}' in ${column}`);
         } else {
-            this.logError(`Item '${oldName}' not found in ${column}`);
+            this.logError(`Item '${internalName}' not found in ${column}`);
         }
     }
     
     updateDescription(args) {
         if (args.length < 3) {
-            this.logError('Usage: desc [column] [name] [description]');
+            this.logError('Usage: desc [column] [internal-name] [description]');
             return;
         }
         
         const column = args[0];
-        const name = args[1];
+        const internalName = args[1].toLowerCase(); // Keep as single arg for internal name
         const description = args.slice(2).join(' ');
         
-        if (kanbanApp.updateItemDescription(column, name, description)) {
-            this.logSuccess(`Updated description for '${name}' in ${column}`);
+        // Find the item to get its display name for the message
+        const item = kanbanApp.items.find(item => 
+            item.column === column && item.internalName === internalName
+        );
+        
+        if (kanbanApp.updateItemDescription(column, internalName, description)) {
+            this.logSuccess(`Updated description for '${item.name}' in ${column}`);
         } else {
-            this.logError(`Item '${name}' not found in ${column}`);
+            this.logError(`Item '${internalName}' not found in ${column}`);
         }
     }
     
