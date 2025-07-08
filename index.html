@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productivity Kanban Board</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Left side - Kanban Board (3/4 of screen) -->
+        <div class="board-container">
+            <div class="column" id="todo-column">
+                <h2 class="column-title">Todo</h2>
+                <div class="column-content" id="todo-items">
+                    <!-- Items will be added here -->
+                </div>
+            </div>
+            <div class="column" id="in-prog-column">
+                <h2 class="column-title">In Progress</h2>
+                <div class="column-content" id="in-prog-items">
+                    <!-- Items will be added here -->
+                </div>
+            </div>
+            <div class="column" id="completed-column">
+                <h2 class="column-title">Completed</h2>
+                <div class="column-content" id="completed-items">
+                    <!-- Items will be added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right side - Console and Timer (1/4 of screen) -->
+        <div class="sidebar">
+            <!-- Pomodoro Timer -->
+            <div class="timer-container">
+                <div class="timer-display">
+                    <div class="timer-circle">
+                        <svg class="progress-ring" width="60" height="60">
+                            <circle class="progress-ring-circle" cx="30" cy="30" r="25" fill="none" stroke="#e0e0e0" stroke-width="4"/>
+                            <circle class="progress-ring-progress" cx="30" cy="30" r="25" fill="none" stroke="#ff6b6b" stroke-width="4"/>
+                        </svg>
+                        <div class="timer-text">25:00</div>
+                    </div>
+                </div>
+                <div class="timer-controls">
+                    <button class="timer-btn" id="start-btn" title="Start">▶️</button>
+                    <button class="timer-btn" id="pause-btn" title="Pause">⏸️</button>
+                    <button class="timer-btn" id="skip-btn" title="Skip">⏭️</button>
+                    <button class="timer-btn" id="reset-btn" title="Reset">🔄</button>
+                </div>
+                <button class="stats-btn" id="stats-btn">Stats</button>
+            </div>
+
+            <!-- Console -->
+            <div class="console-container">
+                <div class="console-header">Console</div>
+                <div class="console-output" id="console-output">
+                    <div class="console-line">Press / to focus here. Type help to get help.</div>
+                </div>
+                <div class="console-input-container">
+                    <input type="text" class="console-input" id="console-input" placeholder="Enter command...">
+                    <div class="console-suggestions" id="console-suggestions"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Modal -->
+    <div class="stats-modal" id="stats-modal">
+        <div class="stats-content">
+            <div class="stats-header">
+                <h3>Productivity Stats</h3>
+                <button class="close-btn" id="close-stats">×</button>
+            </div>
+            <div class="stats-body">
+                <div class="stat-item">
+                    <span class="stat-label">Total Work Time:</span>
+                    <span class="stat-value" id="total-work-time">0h 0m</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Longest Item:</span>
+                    <span class="stat-value" id="longest-item">None</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Project Duration:</span>
+                    <span class="stat-value" id="project-duration">0 days</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Items Completed:</span>
+                    <span class="stat-value" id="items-completed">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Current Streak:</span>
+                    <span class="stat-value" id="current-streak">0 days</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
